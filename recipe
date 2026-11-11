@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PantryPal - Use These First</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f8f4;
+      color: #20382a;
+      margin: 0;
+      padding: 25px;
+    }
+
+    .container {
+      max-width: 650px;
+      margin: auto;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 14px;
+      box-shadow: 0 3px 10px #0000000a;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin: 7px 0;
+      border: 1px solid #d3dfd5;
+      border-radius: 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #218653;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .food {
+      padding: 14px;
+      margin-top: 10px;
+      border: 1px solid #e0e8e1;
+      border-radius: 10px;
+      background: white;
+    }
+
+    .urgent {
+      color: #b52f28;
+      background: #ffe3e0;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .soon {
+      color: #875800;
+      background: #fff0d0;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .fresh {
+      color: #17683e;
+      background: #e0f5e5;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .delete {
+      background: #c7443d;
+      margin-top: 12px;
+    }
+
+    .muted {
+      color: #66776c;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="card">
+    <h1>🌿 PantryPal</h1>
+    <h2>Use These First</h2>
+    <p>
+      Find the food items that need attention first
+      based on their entered dates.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Add Food Item</h2>
+
+    <form id="foodForm">
+      <label for="foodName">Food name</label>
+      <input
+        type="text"
+        id="foodName"
+        placeholder="Example: Tomato"
+        required
+      >
+
+      <label for="expiry">Best-before / expiry date</label>
+      <input type="date" id="expiry" required>
+
+      <button type="submit">Add Food</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>⏰ Priority List</h2>
+    <p class="muted">
+      The nearest entered dates appear first.
+    </p>
+
+    <div id="priorityList"></div>
+  </div>
+
+</div>
+
+<script>
+  // Load saved food items from browser storage
+  let foods = JSON.parse(
+    localStorage.getItem("pantryPriorityFoods") || "[]"
+  );
+
+  // Get today's date without the time
+  function getToday() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  // Calculate the number of days remaining
+  function daysLeft(dateString) {
+    const today = getToday();
+    const targetDate = new Date(dateString + "T00:00:00");
+
+    return Math.round(
+      (targetDate - today) / (1000 * 60 * 60 * 24)
+    );
+  }
+
+  // Determine priority status
+  function getStatus(food) {
+    const days = daysLeft(food.expiry);
+
+    if (days < 0) {
+      return {
+        label: "Past entered date",
+        className: "urgent"
+      };
+    }
+
+    if (days === 0) {
+      return {
+        label: "Date is today",
+        className: "urgent"
+      };
+    }
+
+    if (days <= 3) {
+      return {
+        label: "Use in " + days + " day(s)",
+        className: "soon"
+      };
+    }
+
+    return {
+      label: days + " days remaining",
+      className: "fresh"
+    };
+  }
+
+  // Save the list
+  function saveFoods() {
+    localStorage.setItem(
+      "pantryPriorityFoods",
+      JSON.stringify(foods)
+    );
+
+    displayFoods();
+  }
+
+  // Add food from the form
+  document.getElementById("foodForm")
+    .addEventListener("submit", function(event) {
+      event.preventDefault();
+
+      const name = document
+        .getElementById("foodName")
+        .value.trim();
+
+      const expiry = document
+        .getElementById("expiry")
+        .value;
+
+      if (!name || !expiry) {
+        alert("Please complete all fields.");
+        return;
+      }
+
+      foods.push({
+        id: Date.now(),
+        name: name,
+        expiry: expiry
+      });
+
+      saveFoods();
+
+      this.reset();
+    });
+
+  // Remove food after it has been used
+  function markUsed(id) {
+    foods = foods.filter(function(food) {
+      return food.id !== id;
+    });
+
+    saveFoods();
+  }
+
+  // Display food sorted by nearest date
+  function displayFoods() {
+    const list = document.getElementById("priorityList");
+
+    const sortedFoods = [...foods].sort(function(a, b) {
+      return daysLeft(a.expiry) - daysLeft(b.expiry);
+    });
+
+    if (sortedFoods.length === 0) {
+      list.innerHTML = "<p>No food items added yet.</p>";
+      return;
+    }
+
+    list.innerHTML = sortedFoods.map(function(food) {
+      const status = getStatus(food);
+
+      return `
+        <div class="food">
+          <h3>🥗 ${escapeHTML(food.name)}</h3>
+
+          <p>
+            Entered date: ${escapeHTML(food.expiry)}
+          </p>
+
+          <span class="${status.className}">
+            ${status.label}
+          </span>
+
+          <button
+            class="delete"
+            onclick="markUsed(${food.id})">
+            Mark as Used
+          </button>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // Keep food names safe when displayed
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, function(char) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char];
+    });
+  }
+
+  // Show the list when the page opens
+  displayFoods();
+</script>
+
+</body>
+</html>
