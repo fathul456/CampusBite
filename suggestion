@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PantryPal - Malaysian Recipes</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7f1;
+            margin: 0;
+            padding: 24px;
+            color: #24352a;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: auto;
+        }
+
+        h1 {
+            color: #246b45;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #647268;
+            margin-bottom: 24px;
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 12px #0000000a;
+        }
+
+        .ingredient-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .ingredient {
+            background: #e4f3e8;
+            border: 1px solid #c4e3cd;
+            border-radius: 20px;
+            padding: 9px 13px;
+            cursor: pointer;
+        }
+
+        .ingredient.selected {
+            background: #287747;
+            color: white;
+            border-color: #287747;
+        }
+
+        button {
+            background: #287747;
+            color: white;
+            border: none;
+            padding: 11px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1e5c36;
+        }
+
+        .secondary {
+            background: #e8eee9;
+            color: #24352a;
+        }
+
+        .secondary:hover {
+            background: #d9e3db;
+        }
+
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 16px;
+        }
+
+        .recipe {
+            background: white;
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid #e0e8e1;
+        }
+
+        .recipe h3 {
+            margin-top: 0;
+            color: #246b45;
+        }
+
+        .match {
+            display: inline-block;
+            background: #e4f3e8;
+            color: #246b45;
+            padding: 5px 9px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .missing {
+            color: #a05a16;
+        }
+
+        .empty {
+            color: #647268;
+            padding: 15px 0;
+        }
+
+        small {
+            color: #647268;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <h1>🍳 PantryPal Recipes</h1>
+    <p class="subtitle">
+        Discover Malaysian meals using ingredients you already have.
+    </p>
+
+    <div class="panel">
+        <h2>1. Select Your Ingredients</h2>
+        <p>Choose the ingredients currently available in your kitchen.</p>
+
+        <div id="ingredientList" class="ingredient-list"></div>
+
+        <button onclick="suggestRecipes()">
+            Find My Recipes
+        </button>
+
+        <button class="secondary" onclick="clearSelection()">
+            Clear Selection
+        </button>
+
+        <p><small>
+            Demo ingredients: select the items you have available.
+        </small></p>
+    </div>
+
+    <h2>2. Recommended Malaysian Meals</h2>
+    <div id="recipeResults" class="recipe-grid"></div>
+
+</div>
+
+<script>
+    // Ingredients users can select
+    const ingredients = [
+        "rice",
+        "vegetables",
+        "egg",
+        "tomato",
+        "onion",
+        "garlic",
+        "carrot",
+        "cabbage",
+        "potato",
+        "tofu",
+        "chicken",
+        "soy sauce"
+    ];
+
+    // Malaysian recipe database
+    const recipes = [
+        {
+            name: "Nasi Goreng Sayur",
+            emoji: "🍚",
+            ingredients: [
+                "rice", "vegetables", "egg",
+                "garlic", "soy sauce"
+            ],
+            instructions:
+                "Tumis bawang putih, masukkan sayur dan nasi. " +
+                "Tambah telur serta kicap, kemudian goreng hingga sebati."
+        },
+        {
+            name: "Telur Tomato",
+            emoji: "🍅",
+            ingredients: [
+                "egg", "tomato", "onion"
+            ],
+            instructions:
+                "Tumis bawang dan tomato hingga lembut. " +
+                "Masukkan telur yang telah dipukul dan masak hingga telur masak sepenuhnya."
+        },
+        {
+            name: "Sup Sayur",
+            emoji: "🥣",
+            ingredients: [
+                "vegetables", "carrot", "cabbage",
+                "onion", "garlic", "potato"
+            ],
+            instructions:
+                "Didihkan air bersama bawang. Masukkan sayur " +
+                "dan kentang, kemudian reneh sehingga semuanya empuk."
+        },
+        {
+            name: "Telur Dadar Sayur",
+            emoji: "🍳",
+            ingredients: [
+                "egg", "vegetables", "onion"
+            ],
+            instructions:
+                "Campurkan telur dengan sayur dan bawang yang dihiris. " +
+                "Goreng dalam kuali hingga masak."
+        },
+        {
+            name: "Sup Tauhu Sayur",
+            emoji: "🥬",
+            ingredients: [
+                "tofu", "vegetables", "carrot",
+                "garlic", "onion"
+            ],
+            instructions:
+                "Didihkan air dengan bawang putih dan bawang. " +
+                "Masukkan tauhu dan sayur, kemudian masak hingga lembut."
+        },
+        {
+            name: "Nasi Goreng Ayam",
+            emoji: "🍗",
+            ingredients: [
+                "rice", "chicken", "egg",
+                "garlic", "soy sauce"
+            ],
+            instructions:
+                "Pastikan ayam dipotong kecil dan dimasak sepenuhnya. " +
+                "Goreng bersama bawang putih, nasi, telur dan kicap."
+        }
+    ];
+
+    // Store selected ingredients
+    let selectedIngredients = [];
+
+    const ingredientList =
+        document.getElementById("ingredientList");
+
+    // Display ingredient buttons
+    function displayIngredients() {
+        ingredientList.innerHTML = "";
+
+        ingredients.forEach(ingredient => {
+            const button = document.createElement("button");
+
+            button.className = "ingredient";
+            button.textContent = ingredient;
+            button.type = "button";
+
+            button.onclick = function () {
+                toggleIngredient(ingredient, button);
+            };
+
+            ingredientList.appendChild(button);
+        });
+    }
+
+    // Select or unselect an ingredient
+    function toggleIngredient(ingredient, button) {
+        if (selectedIngredients.includes(ingredient)) {
+            selectedIngredients =
+                selectedIngredients.filter(item => item !== ingredient);
+
+            button.classList.remove("selected");
+        } else {
+            selectedIngredients.push(ingredient);
+            button.classList.add("selected");
+        }
+    }
+
+    // Find recipes matching available ingredients
+    function suggestRecipes() {
+        const results = document.getElementById("recipeResults");
+
+        if (selectedIngredients.length === 0) {
+            results.innerHTML =
+                '<p class="empty">Please select at least one ingredient.</p>';
+            return;
+        }
+
+        const matchedRecipes = recipes.map(recipe => {
+            const available = recipe.ingredients.filter(item =>
+                selectedIngredients.includes(item)
+            );
+
+            const missing = recipe.ingredients.filter(item =>
+                !selectedIngredients.includes(item)
+            );
+
+            return {
+                ...recipe,
+                available,
+                missing,
+                score: available.length / recipe.ingredients.length
+            };
+        });
+
+        // Show recipes with the highest ingredient match first
+        matchedRecipes.sort((a, b) => b.score - a.score);
+
+        results.innerHTML = "";
+
+        matchedRecipes.forEach(recipe => {
+            // Only show recipes with at least one matching ingredient
+            if (recipe.available.length === 0) return;
+
+            const card = document.createElement("div");
+            card.className = "recipe";
+
+            const title = document.createElement("h3");
+            title.textContent = recipe.emoji + " " + recipe.name;
+
+            const match = document.createElement("span");
+            match.className = "match";
+            match.textContent =
+                Math.round(recipe.score * 100) + "% ingredient match";
+
+            const availableTitle = document.createElement("p");
+            availableTitle.textContent = "You have: " +
+                recipe.available.join(", ");
+
+            const missingTitle = document.createElement("p");
+            missingTitle.className = "missing";
+            missingTitle.textContent = recipe.missing.length
+                ? "Still needed: " + recipe.missing.join(", ")
+                : "You have all listed ingredients!";
+
+            const instructions = document.createElement("p");
+            instructions.textContent = recipe.instructions;
+
+            card.append(
+                title,
+                match,
+                availableTitle,
+                missingTitle,
+                instructions
+            );
+
+            results.appendChild(card);
+        });
+
+        if (!results.children.length) {
+            results.innerHTML =
+                '<p class="empty">No matching recipes found.</p>';
+        }
+    }
+
+    // Reset ingredient selection
+    function clearSelection() {
+        selectedIngredients = [];
+        displayIngredients();
+
+        document.getElementById("recipeResults").innerHTML =
+            '<p class="empty">Select ingredients to discover recipes.</p>';
+    }
+
+    // Start the app
+    displayIngredients();
+
+    document.getElementById("recipeResults").innerHTML =
+        '<p class="empty">Select ingredients to discover recipes.</p>';
+</script>
+
+</body>
+</html>
