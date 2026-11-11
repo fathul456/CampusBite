@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PantryPal | Smart Food Manager</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f4f8f4;
+      color: #20382a;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+    }
+
+    header {
+      background: #218653;
+      color: white;
+      padding: 25px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      margin: 0 0 8px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 3px 12px #0000000a;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin: 6px 0;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    input, select {
+      border: 1px solid #ccd8ce;
+      background: white;
+    }
+
+    button {
+      border: none;
+      background: #218653;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #17683e;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 26px;
+      margin-top: 8px;
+    }
+
+    .food-item {
+      border: 1px solid #e0e8e1;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 10px;
+      background: #fff;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin: 6px 0;
+    }
+
+    .fresh {
+      background: #dff5e5;
+      color: #17683e;
+    }
+
+    .soon {
+      background: #fff0ce;
+      color: #8b5900;
+    }
+
+    .expired {
+      background: #ffe1df;
+      color: #a52e27;
+    }
+
+    .delete-btn {
+      background: #d9534f;
+      width: auto;
+      padding: 8px 12px;
+    }
+
+    .recipe {
+      padding: 12px;
+      border-radius: 10px;
+      background: #edf7ef;
+      margin: 10px 0;
+    }
+
+    .small {
+      color: #68776c;
+      font-size: 13px;
+    }
+
+    @media (max-width: 500px) {
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      body {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+  <header>
+    <h1>🌿 PantryPal</h1>
+    <p>Track your food. Reduce your waste.</p>
+    <p>Manage your food inventory and use ingredients wisely.</p>
+  </header>
+
+  <section class="stats">
+    <div class="stat">
+      Total Items
+      <strong id="total">0</strong>
+    </div>
+
+    <div class="stat">
+      Use Soon
+      <strong id="soon">0</strong>
+    </div>
+
+    <div class="stat">
+      Past Date
+      <strong id="expired">0</strong>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>➕ Add Food Item</h2>
+
+    <form id="foodForm">
+      <label for="foodName">Food Name</label>
+      <input
+        type="text"
+        id="foodName"
+        placeholder="Example: Tomato"
+        required
+      >
+
+      <label for="category">Category</label>
+      <select id="category">
+        <option>Vegetables</option>
+        <option>Fruit</option>
+        <option>Dairy</option>
+        <option>Protein</option>
+        <option>Grains</option>
+        <option>Other</option>
+      </select>
+
+      <label for="quantity">Quantity</label>
+      <input
+        type="number"
+        id="quantity"
+        min="1"
+        value="1"
+        required
+      >
+
+      <label for="expiry">Best-before / Expiry Date</label>
+      <input type="date" id="expiry" required>
+
+      <button type="submit">Save Food Item</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>📦 My Food Inventory</h2>
+
+    <input
+      type="search"
+      id="search"
+      placeholder="Search food..."
+    >
+
+    <button type="button" onclick="setFilter('all')">
+      Show All
+    </button>
+
+    <button type="button" onclick="setFilter('soon')">
+      Use Soon
+    </button>
+
+    <button type="button" onclick="setFilter('expired')">
+      Past Date
+    </button>
+
+    <div id="inventory"></div>
+  </section>
+
+  <section class="card">
+    <h2>🍳 Recipe Suggestions</h2>
+    <p class="small">
+      Suggestions are based on a simple list of ingredients.
+    </p>
+    <div id="recipes"></div>
+  </section>
+
+  <p class="small">
+    PantryPal prototype. Date reminders are estimates and cannot
+    determine whether food is safe to eat.
+  </p>
+
+</div>
+
+<script>
+  // Load saved food items from browser storage
+  let foods = JSON.parse(
+    localStorage.getItem("pantryFoods") || "[]"
+  );
+
+  let currentFilter = "all";
+
+  // Calculate days remaining until the entered date
+  function daysLeft(dateString) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiry = new Date(dateString + "T00:00:00");
+
+    return Math.round(
+      (expiry - today) / (1000 * 60 * 60 * 24)
+    );
+  }
+
+  // Determine the display status
+  function getStatus(food) {
+    const days = daysLeft(food.expiry);
+
+    if (days < 0) {
+      return {
+        text: "Past date",
+        className: "expired"
+      };
+    }
+
+    if (days <= 3) {
+      return {
+        text: days === 0
+          ? "Date is today"
+          : "Use in " + days + " day(s)",
+        className: "soon"
+      };
+    }
+
+    return {
+      text: "In " + days + " days",
+      className: "fresh"
+    };
+  }
+
+  // Save data to localStorage
+  function saveFoods() {
+    localStorage.setItem(
+      "pantryFoods",
+      JSON.stringify(foods)
+    );
+
+    render();
+  }
+
+  // Add a food item
+  document.getElementById("foodForm")
+    .addEventListener("submit", function(event) {
+      event.preventDefault();
+
+      const name =
+        document.getElementById("foodName").value.trim();
+
+      const category =
+        document.getElementById("category").value;
+
+      const quantity =
+        Number(document.getElementById("quantity").value);
+
+      const expiry =
+        document.getElementById("expiry").value;
+
+      if (!name || !expiry || quantity < 1) {
+        alert("Please enter valid food details.");
+        return;
+      }
+
+      foods.push({
+        id: Date.now(),
+        name: name,
+        category: category,
+        quantity: quantity,
+        expiry: expiry
+      });
+
+      saveFoods();
+      this.reset();
+
+      document.getElementById("quantity").value = 1;
+
+      alert("Food item added successfully!");
+    });
+
+  // Delete an item
+  function deleteFood(id) {
+    foods = foods.filter(function(food) {
+      return food.id !== id;
+    });
+
+    saveFoods();
+  }
+
+  // Change inventory filter
+  function setFilter(filter) {
+    currentFilter = filter;
+    render();
+  }
+
+  // Search and display food items
+  function render() {
+    const search = document
+      .getElementById("search")
+      .value.toLowerCase();
+
+    const soonCount = foods.filter(function(food) {
+      const days = daysLeft(food.expiry);
+      return days >= 0 && days <= 3;
+    }).length;
+
+    const expiredCount = foods.filter(function(food) {
+      return daysLeft(food.expiry) < 0;
+    }).length;
+
+    document.getElementById("total").textContent =
+      foods.length;
+
+    document.getElementById("soon").textContent =
+      soonCount;
+
+    document.getElementById("expired").textContent =
+      expiredCount;
+
+    const filteredFoods = foods.filter(function(food) {
+      const matchesSearch =
+        food.name.toLowerCase().includes(search);
+
+      const days = daysLeft(food.expiry);
+
+      let matchesFilter = true;
+
+      if (currentFilter === "soon") {
+        matchesFilter = days >= 0 && days <= 3;
+      }
+
+      if (currentFilter === "expired") {
+        matchesFilter = days < 0;
+      }
+
+      return matchesSearch && matchesFilter;
+    });
+
+    const inventory =
+      document.getElementById("inventory");
+
+    if (filteredFoods.length === 0) {
+      inventory.innerHTML =
+        "<p>No food items found.</p>";
+    } else {
+      inventory.innerHTML = filteredFoods.map(function(food) {
+        const status = getStatus(food);
+
+        return `
+          <div class="food-item">
+            <h3>${escapeHTML(food.name)}</h3>
+
+            <p>Category: ${escapeHTML(food.category)}</p>
+
+            <p>Quantity: ${food.quantity}</p>
+
+            <p>Date: ${escapeHTML(food.expiry)}</p>
+
+            <span class="badge ${status.className}">
+              ${status.text}
+            </span>
+
+            <br>
+
+            <button class="delete-btn"
+              onclick="deleteFood(${food.id})">
+              Delete Item
+            </button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    renderRecipes();
+  }
+
+  // Prevent user-entered text from being interpreted as HTML
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, function(char) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char];
+    });
+  }
+
+  // Basic rule-based recipe suggestions
+  function renderRecipes() {
+    const recipeList = [
+      {
+        name: "Tomato Egg Stir-fry",
+        ingredients: ["tomato", "egg"],
+        time: "10 minutes"
+      },
+      {
+        name: "Banana Oat Pancakes",
+        ingredients: ["banana", "oat"],
+        time: "15 minutes"
+      },
+      {
+        name: "Spinach Fried Rice",
+        ingredients: ["spinach", "rice"],
+        time: "12 minutes"
+      },
+      {
+        name: "Vegetable Pasta",
+        ingredients: ["tomato", "spinach", "milk"],
+        time: "20 minutes"
+      }
+    ];
+
+    const availableFoods = foods.map(function(food) {
+      return food.name.toLowerCase();
+    });
+
+    const recipesElement =
+      document.getElementById("recipes");
+
+    recipesElement.innerHTML = recipeList.map(function(recipe) {
+      const matches = recipe.ingredients.filter(function(ingredient) {
+        return availableFoods.some(function(food) {
+          return food.includes(ingredient);
+        });
+      });
+
+      return `
+        <div class="recipe">
+          <h3>${recipe.name}</h3>
+          <p>Time: ${recipe.time}</p>
+          <p>Matching ingredients: ${matches.length}</p>
+          <p>Ingredients: ${recipe.ingredients.join(", ")}</p>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // Refresh the inventory when the search changes
+  document.getElementById("search")
+    .addEventListener("input", render);
+
+  // Set a default date three days from today
+  const defaultExpiry = new Date();
+  defaultExpiry.setDate(defaultExpiry.getDate() + 3);
+
+  document.getElementById("expiry").value =
+    defaultExpiry.getFullYear() + "-" +
+    String(defaultExpiry.getMonth() + 1).padStart(2, "0") + "-" +
+    String(defaultExpiry.getDate()).padStart(2, "0");
+
+  // Initial page rendering
+  render();
+</script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PantryPal - Malaysian Recipes</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7f1;
+            margin: 0;
+            padding: 24px;
+            color: #24352a;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: auto;
+        }
+
+        h1 {
+            color: #246b45;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #647268;
+            margin-bottom: 24px;
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 12px #0000000a;
+        }
+
+        .ingredient-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .ingredient {
+            background: #e4f3e8;
+            border: 1px solid #c4e3cd;
+            border-radius: 20px;
+            padding: 9px 13px;
+            cursor: pointer;
+        }
+
+        .ingredient.selected {
+            background: #287747;
+            color: white;
+            border-color: #287747;
+        }
+
+        button {
+            background: #287747;
+            color: white;
+            border: none;
+            padding: 11px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1e5c36;
+        }
+
+        .secondary {
+            background: #e8eee9;
+            color: #24352a;
+        }
+
+        .secondary:hover {
+            background: #d9e3db;
+        }
+
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 16px;
+        }
+
+        .recipe {
+            background: white;
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid #e0e8e1;
+        }
+
+        .recipe h3 {
+            margin-top: 0;
+            color: #246b45;
+        }
+
+        .match {
+            display: inline-block;
+            background: #e4f3e8;
+            color: #246b45;
+            padding: 5px 9px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .missing {
+            color: #a05a16;
+        }
+
+        .empty {
+            color: #647268;
+            padding: 15px 0;
+        }
+
+        small {
+            color: #647268;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <h1>🍳 PantryPal Recipes</h1>
+    <p class="subtitle">
+        Discover Malaysian meals using ingredients you already have.
+    </p>
+
+    <div class="panel">
+        <h2>1. Select Your Ingredients</h2>
+        <p>Choose the ingredients currently available in your kitchen.</p>
+
+        <div id="ingredientList" class="ingredient-list"></div>
+
+        <button onclick="suggestRecipes()">
+            Find My Recipes
+        </button>
+
+        <button class="secondary" onclick="clearSelection()">
+            Clear Selection
+        </button>
+
+        <p><small>
+            Demo ingredients: select the items you have available.
+        </small></p>
+    </div>
+
+    <h2>2. Recommended Malaysian Meals</h2>
+    <div id="recipeResults" class="recipe-grid"></div>
+
+</div>
+
+<script>
+    // Ingredients users can select
+    const ingredients = [
+        "rice",
+        "vegetables",
+        "egg",
+        "tomato",
+        "onion",
+        "garlic",
+        "carrot",
+        "cabbage",
+        "potato",
+        "tofu",
+        "chicken",
+        "soy sauce"
+    ];
+
+    // Malaysian recipe database
+    const recipes = [
+        {
+            name: "Nasi Goreng Sayur",
+            emoji: "🍚",
+            ingredients: [
+                "rice", "vegetables", "egg",
+                "garlic", "soy sauce"
+            ],
+            instructions:
+                "Tumis bawang putih, masukkan sayur dan nasi. " +
+                "Tambah telur serta kicap, kemudian goreng hingga sebati."
+        },
+        {
+            name: "Telur Tomato",
+            emoji: "🍅",
+            ingredients: [
+                "egg", "tomato", "onion"
+            ],
+            instructions:
+                "Tumis bawang dan tomato hingga lembut. " +
+                "Masukkan telur yang telah dipukul dan masak hingga telur masak sepenuhnya."
+        },
+        {
+            name: "Sup Sayur",
+            emoji: "🥣",
+            ingredients: [
+                "vegetables", "carrot", "cabbage",
+                "onion", "garlic", "potato"
+            ],
+            instructions:
+                "Didihkan air bersama bawang. Masukkan sayur " +
+                "dan kentang, kemudian reneh sehingga semuanya empuk."
+        },
+        {
+            name: "Telur Dadar Sayur",
+            emoji: "🍳",
+            ingredients: [
+                "egg", "vegetables", "onion"
+            ],
+            instructions:
+                "Campurkan telur dengan sayur dan bawang yang dihiris. " +
+                "Goreng dalam kuali hingga masak."
+        },
+        {
+            name: "Sup Tauhu Sayur",
+            emoji: "🥬",
+            ingredients: [
+                "tofu", "vegetables", "carrot",
+                "garlic", "onion"
+            ],
+            instructions:
+                "Didihkan air dengan bawang putih dan bawang. " +
+                "Masukkan tauhu dan sayur, kemudian masak hingga lembut."
+        },
+        {
+            name: "Nasi Goreng Ayam",
+            emoji: "🍗",
+            ingredients: [
+                "rice", "chicken", "egg",
+                "garlic", "soy sauce"
+            ],
+            instructions:
+                "Pastikan ayam dipotong kecil dan dimasak sepenuhnya. " +
+                "Goreng bersama bawang putih, nasi, telur dan kicap."
+        }
+    ];
+
+    // Store selected ingredients
+    let selectedIngredients = [];
+
+    const ingredientList =
+        document.getElementById("ingredientList");
+
+    // Display ingredient buttons
+    function displayIngredients() {
+        ingredientList.innerHTML = "";
+
+        ingredients.forEach(ingredient => {
+            const button = document.createElement("button");
+
+            button.className = "ingredient";
+            button.textContent = ingredient;
+            button.type = "button";
+
+            button.onclick = function () {
+                toggleIngredient(ingredient, button);
+            };
+
+            ingredientList.appendChild(button);
+        });
+    }
+
+    // Select or unselect an ingredient
+    function toggleIngredient(ingredient, button) {
+        if (selectedIngredients.includes(ingredient)) {
+            selectedIngredients =
+                selectedIngredients.filter(item => item !== ingredient);
+
+            button.classList.remove("selected");
+        } else {
+            selectedIngredients.push(ingredient);
+            button.classList.add("selected");
+        }
+    }
+
+    // Find recipes matching available ingredients
+    function suggestRecipes() {
+        const results = document.getElementById("recipeResults");
+
+        if (selectedIngredients.length === 0) {
+            results.innerHTML =
+                '<p class="empty">Please select at least one ingredient.</p>';
+            return;
+        }
+
+        const matchedRecipes = recipes.map(recipe => {
+            const available = recipe.ingredients.filter(item =>
+                selectedIngredients.includes(item)
+            );
+
+            const missing = recipe.ingredients.filter(item =>
+                !selectedIngredients.includes(item)
+            );
+
+            return {
+                ...recipe,
+                available,
+                missing,
+                score: available.length / recipe.ingredients.length
+            };
+        });
+
+        // Show recipes with the highest ingredient match first
+        matchedRecipes.sort((a, b) => b.score - a.score);
+
+        results.innerHTML = "";
+
+        matchedRecipes.forEach(recipe => {
+            // Only show recipes with at least one matching ingredient
+            if (recipe.available.length === 0) return;
+
+            const card = document.createElement("div");
+            card.className = "recipe";
+
+            const title = document.createElement("h3");
+            title.textContent = recipe.emoji + " " + recipe.name;
+
+            const match = document.createElement("span");
+            match.className = "match";
+            match.textContent =
+                Math.round(recipe.score * 100) + "% ingredient match";
+
+            const availableTitle = document.createElement("p");
+            availableTitle.textContent = "You have: " +
+                recipe.available.join(", ");
+
+            const missingTitle = document.createElement("p");
+            missingTitle.className = "missing";
+            missingTitle.textContent = recipe.missing.length
+                ? "Still needed: " + recipe.missing.join(", ")
+                : "You have all listed ingredients!";
+
+            const instructions = document.createElement("p");
+            instructions.textContent = recipe.instructions;
+
+            card.append(
+                title,
+                match,
+                availableTitle,
+                missingTitle,
+                instructions
+            );
+
+            results.appendChild(card);
+        });
+
+        if (!results.children.length) {
+            results.innerHTML =
+                '<p class="empty">No matching recipes found.</p>';
+        }
+    }
+
+    // Reset ingredient selection
+    function clearSelection() {
+        selectedIngredients = [];
+        displayIngredients();
+
+        document.getElementById("recipeResults").innerHTML =
+            '<p class="empty">Select ingredients to discover recipes.</p>';
+    }
+
+    // Start the app
+    displayIngredients();
+
+    document.getElementById("recipeResults").innerHTML =
+        '<p class="empty">Select ingredients to discover recipes.</p>';
+</script>
+
+</body>
+</html>
+
